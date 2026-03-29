@@ -33,17 +33,38 @@ The primer is organized in three parts:
 The primer is a single markdown file with inline visualizations: **[ml-primer.md](ml-primer.md)**
 
 To jump to a specific topic:
-- ⚡ [The Neuron](ml-primer.md#the-neuron) — start here
+- ⚡ [The Neuron](ml-primer.md#-the-neuron) — start here
 - 🔵 [The Dot Product](ml-primer.md#the-dot-product) — the fundamental primitive
-- 📄 [Composition: Paper Folding](ml-primer.md#composition-depth-width-and-paper-folding) — what depth buys you
-- 📉 [Learning as Optimization](ml-primer.md#learning-as-optimization) — derivatives, chain rule, backprop
-- 🔀 [The Combination Rule Family](ml-primer.md#the-combination-rule-family) — convolution vs attention vs recurrence
-- 🤖 [The Transformer](ml-primer.md#the-transformer) — self-attention, FFN, residual connections
-- 🎯 [Frameworks](ml-primer.md#frameworks) — supervised, self-supervised, RL, GANs, diffusion
-- 🚦 [Gates as Control Systems](ml-primer.md#gates-as-control-systems) — the practitioner's gating toolkit
-- 🔧 [Diagnosing Training Problems](ml-primer.md#appendix-diagnosing-and-fixing-training-problems) — loss curve symptoms and fixes
+- 📄 [Composition: Paper Folding](ml-primer.md#-composition-depth-width-and-paper-folding) — what depth buys you
+- 📉 [Learning as Optimization](ml-primer.md#-learning-as-optimization) — derivatives, chain rule, backprop
+- 🎯 [Generalization](ml-primer.md#-generalization) — why overparameterized networks work at all
+- 🧠 [Representation](ml-primer.md#-representation-what-networks-actually-store) — features as directions, superposition
+- 🔀 [The Combination Rule Family](ml-primer.md#-the-combination-rule-family) — convolution vs attention vs recurrence
+- 🤖 [The Transformer](ml-primer.md#-the-transformer) — self-attention, FFN, residual connections
+- 🏋️ [Frameworks](ml-primer.md#%EF%B8%8F-frameworks) — supervised, self-supervised, RL, GANs, diffusion
+- 🚦 [Gates as Control Systems](ml-primer.md#-gates-as-control-systems) — the practitioner's gating toolkit
+- 🔧 [Diagnosing Training Problems](ml-primer.md#-appendix-diagnosing-and-fixing-training-problems) — loss curve symptoms and fixes
 
 The syllabus shows the full topic map: **[SYLLABUS.md](SYLLABUS.md)**
+
+## 🧭 How to Use This
+
+This primer was built through conversation — one concept at a time, each stress-tested with questions until the mental model held up. You can use it two ways:
+
+**Solo reading.** Read it front to back, section by section. When something doesn't click, stop and re-read the section it depends on. The primer is designed so that each section builds load-bearing intuition for the next. Don't skip ahead — the later sections assume you've internalized the earlier ones, not just read them.
+
+**Interactive exploration with an AI agent.** This is the more powerful approach, and closer to how the primer was actually built. Feed the primer (or a section of it) to your preferred AI coding assistant and explore it conversationally:
+
+```
+Read ml-primer.md. I'm an engineer learning ML fundamentals.
+Walk me through the section on [topic]. I want to understand
+it well enough to reason about design decisions, not just
+recite definitions. Push back if I get something wrong.
+```
+
+Ask "why" questions. Propose wrong answers and see if the agent catches them. Ask for concrete examples. Ask what would happen if you changed one thing. Ask how two concepts relate. The primer gives both you and the agent a shared vocabulary and a correct conceptual framework — the conversation fills in everything a static document can't.
+
+The primer is the map. The conversation is the territory.
 
 ## 🖼️ Visualizations
 
