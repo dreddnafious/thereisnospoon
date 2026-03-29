@@ -86,15 +86,30 @@ A neuron is a half-space detector. It gives you a side (which half) and a distan
 
 Each activation function is a different policy for what to do with the side-and-distance information that z provides. Think of gradient flow as a signal propagating through a pipeline. Each nonlinearity is a valve.
 
-**ReLU: `max(0, z)`** — A gate valve. Fully open or fully closed. If z > 0, pass it through unchanged. If z < 0, output zero. The gradient is 1 (active) or 0 (dead). Active neurons pass the gradient perfectly — no attenuation. This is why ReLU solved vanishing gradients. Failure mode: neurons can die permanently. If weights update so z is negative for every input, gradient is always zero and the neuron never recovers.
+<br>
 
-**Sigmoid: `1 / (1 + e^(-z))`** — A pressure regulator. Squashes everything to (0, 1). Smooth, bounded. But the gradient approaches zero for large |z| — the neuron *saturates*. Confident neurons stop learning. In deep networks, saturation compounds: gradients shrink exponentially across layers. This is the vanishing gradient problem.
+**ReLU: `max(0, z)`** — A gate valve. Fully open or fully closed.
+- If z > 0, pass it through unchanged. If z < 0, output zero.
+- Gradient is 1 (active) or 0 (dead) — no attenuation when active. This is why ReLU solved vanishing gradients.
+- *Failure mode:* neurons can die permanently. If weights update so z is negative for every input, the neuron never recovers.
 
-**tanh** — Same shape as sigmoid but centered on zero, range (-1, 1). Same saturation problem, but zero-centering helps gradient flow. Better than sigmoid in practice, but both saturate.
+**Sigmoid: `1 / (1 + e^(-z))`** — A pressure regulator. Squashes everything to (0, 1).
+- Smooth, bounded, differentiable everywhere.
+- Gradient approaches zero for large |z| — the neuron *saturates*. Confident neurons stop learning.
+- *Failure mode:* in deep networks, saturation compounds. Gradients shrink exponentially across layers. This is the vanishing gradient problem.
 
-**RePU: `max(0, z)^p`** — An amplifier. Polynomial activation. A single neuron can represent curves, not just lines. But the gradient grows with z, so large activations produce large gradients. Risk: gradient explosion — the opposite failure mode from sigmoid.
+**tanh** — Same shape as sigmoid but centered on zero, range (-1, 1).
+- Same saturation problem, but zero-centering helps gradient flow.
+- Better than sigmoid in practice, but both saturate.
 
-**GELU: `z * Φ(z)`** — A proportional valve. Multiplies z by the probability that z is "large" under a standard normal distribution. Near zero, it smoothly modulates rather than hard-switching. No dead zone, no hard cutoff. Transformers use GELU because attention produces many near-zero signals, and the smooth response lets the network learn fine distinctions near the decision boundary.
+**RePU: `max(0, z)^p`** — An amplifier. Polynomial activation.
+- A single neuron can represent curves, not just lines.
+- *Failure mode:* gradient grows with z, so large activations produce large gradients. Gradient explosion — the opposite problem from sigmoid.
+
+**GELU: `z * Φ(z)`** — A proportional valve. Smooth modulation near zero.
+- Multiplies z by the probability that z is "large" under a standard normal distribution.
+- No dead zone, no hard cutoff. Near zero, it smoothly modulates rather than hard-switching.
+- *Why transformers use it:* attention produces many near-zero signals. The smooth response lets the network learn fine distinctions near the decision boundary.
 
 ![Activation functions and their derivatives side by side. Each function is a different valve on the signal pipeline.](figures/02_activation_functions.png)
 
@@ -382,27 +397,46 @@ Every architecture does three things: combine inputs according to some rule, app
 
 <br>
 
-**Convolution** — small sliding dot product with shared weights. Assumes locality and translation invariance. Far fewer parameters. Hierarchical feature composition: edges → textures → objects across layers. Pooling, stride, and dilation control how the receptive field expands. Breaks down when locality is wrong, when translation invariance is wrong, or when data isn't on a grid.
+**Convolution** — small sliding dot product with shared weights.
+- Assumes locality and translation invariance. Far fewer parameters.
+- Hierarchical feature composition: edges → textures → objects across layers.
+- Pooling, stride, and dilation control how the receptive field expands.
+- *Breaks down when:* locality is wrong, translation invariance is wrong, or data isn't on a grid.
 - *Landmark models:* LeNet (1998, handwritten digits), AlexNet (2012, ImageNet breakthrough), ResNet (2015, residual connections enabled 100+ layers), U-Net (2015, image segmentation, backbone of diffusion models).
 
 <br>
 
-**Recurrence** — sequential state-carrying. `h_t = f(W_h · h_(t-1) + W_x · x_t + b)`. A fixed-size vector summarizes all history. Each step is a lossy relay — the entire upstream history must fit in one vector. Eigenvalues of W_h determine information decay rates per direction (eigenvalue < 1: information decays; > 1: it explodes; = 1: preserved). Vanilla RNNs fail beyond ~10-20 steps. LSTMs add an additive cell state (conveyor belt) with learned gates (forget, input, output) — same trick as residual connections. GRUs simplify to one update gate. Attention replaced recurrence for parallelism, no compression bottleneck, and shorter gradient paths. Recurrence still wins for streaming, constant memory, and strict causality.
+**Recurrence** — sequential state-carrying. `h_t = f(W_h · h_(t-1) + W_x · x_t + b)`.
+- A fixed-size vector summarizes all history. Each step is a lossy relay.
+- Eigenvalues of W_h determine information decay rates per direction: < 1 decays, > 1 explodes, = 1 preserved.
+- Vanilla RNNs fail beyond ~10-20 steps.
+- LSTMs add an additive cell state (conveyor belt) with learned gates (forget, input, output) — same trick as residual connections. GRUs simplify to one update gate.
+- *Replaced by attention for:* parallelism, no compression bottleneck, shorter gradient paths.
+- *Still wins for:* streaming, constant memory, strict causality.
 - *Landmark models:* LSTM (1997, Hochreiter & Schmidhuber), GRU (2014, Cho et al.), seq2seq (2014, encoder-decoder for translation — where attention was invented as a patch for the compression bottleneck).
 
 <br>
 
-**Attention** — dynamic, content-dependent combination. Three projections per element: query (what am I looking for?), key (what do I contain?), value (what do I provide?). Dot product of query against all keys determines relevance. Softmax normalizes to a distribution. Output is weighted sum of values. Q/K/V are the complete decomposition of a routing operation — no additional projections have proven necessary.
+**Attention** — dynamic, content-dependent combination.
+- Three projections per element: **query** (what am I looking for?), **key** (what do I contain?), **value** (what do I provide?).
+- Dot product of query against all keys determines relevance. Softmax normalizes to a distribution. Output is weighted sum of values.
+- Q/K/V are the complete decomposition of a routing operation — no additional projections have proven necessary.
 - *Landmark models:* Transformer (2017, "Attention Is All You Need"), BERT (2018, bidirectional encoder), GPT series (2018-present, autoregressive decoder), Vision Transformer/ViT (2020, patches + attention for images).
 
 <br>
 
-**Graph operations** — message passing over explicit topology. Nodes collect from neighbors, aggregate, update. Convolution generalized to irregular structure. Excels when relationships are known (molecules, physics). Oversmoothing limits depth — too many rounds and all nodes converge.
+**Graph operations** — message passing over explicit topology.
+- Nodes collect from neighbors, aggregate, update. Convolution generalized to irregular structure.
+- *Excels when:* relationships are known (molecules, physics).
+- *Limitation:* oversmoothing — too many rounds and all nodes converge.
 - *Landmark models:* GCN (2017, Kipf & Welling), GAT (2018, attention-weighted edges), SchNet (2017, molecular property prediction), AlphaFold 2 (2020, protein structure with graph + attention).
 
 <br>
 
-**State-space models** — continuous-time recurrence from control theory. `dx/dt = Ax + Bu, y = Cx + Du`. Can be computed as recurrence (O(1) memory) or convolution (parallel training). HiPPO provides mathematically optimal history compression. Mamba added input-dependent gating for content-sensitive processing. Bridges recurrence and convolution.
+**State-space models** — continuous-time recurrence from control theory. `dx/dt = Ax + Bu, y = Cx + Du`.
+- Can be computed as recurrence (O(1) memory) or convolution (parallel training).
+- HiPPO provides mathematically optimal history compression. Mamba added input-dependent gating.
+- Bridges recurrence and convolution.
 - *Landmark models:* S4 (2021, first efficient SSM), Mamba (2023, selective state spaces), Jamba (2024, SSM-attention hybrid).
 
 <br>
@@ -485,7 +519,16 @@ Three decisions: what is an element (granularity), what does each element's vect
 
 Backprop dominates, but it's not the only way networks learn. Understanding the alternatives clarifies what backprop actually provides — and what it costs.
 
-**Backpropagation** — exact global gradient via chain rule. Dominant because nothing else matches its efficiency at scale. Downsides: requires differentiability (can't backprop through discrete decisions), requires storing all activations (memory scales with depth), backward pass as expensive as forward, sequential layer-by-layer backward (synchronization bottleneck), catastrophic forgetting (gradient only sees current batch), no learning at inference time, gradient pathology scales with depth.
+**Backpropagation** — exact global gradient via chain rule. Dominant because nothing else matches its efficiency at scale.
+
+Downsides:
+- Requires differentiability — can't backprop through discrete decisions
+- Requires storing all activations — memory scales with depth
+- Backward pass is as expensive as forward
+- Sequential layer-by-layer backward — synchronization bottleneck
+- Catastrophic forgetting — gradient only sees current batch
+- No learning at inference time
+- Gradient pathology scales with depth
 
 **Hebbian learning** — "neurons that fire together wire together." `Δw = η · x_i · x_j`. Local, no global error signal. Learns correlations, not task mappings. Natural associative memory, supports continual learning. Capacity ~0.14N patterns for N neurons. Classical Hopfield networks (1982) are the canonical example.
 
@@ -505,22 +548,40 @@ Backprop dominates, but it's not the only way networks learn. Understanding the 
 
 The training objective — what the model optimizes for. Independent of architecture and learning rule.
 
-**Supervised** — inputs and correct outputs. Model predicts, compares to answer, updates. Limited by labeled data.
-- *Examples:* ImageNet classification (ResNet, EfficientNet), machine translation (early seq2seq models), speech recognition (DeepSpeech), medical image diagnosis.
+**Supervised** — inputs and correct outputs. Model predicts, compares to answer, updates.
+- Limited by labeled data.
+- *Examples:* ImageNet classification (ResNet, EfficientNet), machine translation (early seq2seq), speech recognition (DeepSpeech), medical image diagnosis.
 
-**Self-supervised** — hide part of input, predict the hidden part. Labels come from data itself. Power is scale — unlabeled data is effectively unlimited. This is how most foundation models are trained.
-- *Masked prediction:* BERT (2018) masks words, predicts from context. MAE (2022) masks image patches, reconstructs pixels.
-- *Autoregressive prediction:* GPT series (2018-present) predicts the next token. The entire capability of modern LLMs — grammar, semantics, world knowledge, reasoning — emerges from this objective applied at scale.
-- *Contrastive:* SimCLR (2020) and CLIP (2021) learn representations by pushing similar pairs close and dissimilar pairs apart in embedding space.
+<br>
 
-**Reinforcement learning** — no correct answers, only rewards. Model takes actions, receives sparse/delayed reward, learns a policy. Much harder than supervised — weak learning signal, credit assignment problem.
-- *Examples:* AlphaGo/AlphaZero (2016-2017, game playing), OpenAI Five (2019, Dota 2), RLHF for LLM alignment (InstructGPT 2022, used in ChatGPT, Claude, etc.), robotics control (RT-2).
+**Self-supervised** — hide part of input, predict the hidden part. Labels come from data itself.
+- Power is scale — unlabeled data is effectively unlimited. This is how most foundation models are trained.
+- *Masked prediction:* BERT (2018) masks words, predicts from context. MAE (2022) masks image patches.
+- *Autoregressive prediction:* GPT series (2018-present) predicts the next token. Grammar, semantics, world knowledge, reasoning — all emerge from this objective at scale.
+- *Contrastive:* SimCLR (2020) and CLIP (2021) push similar pairs close, dissimilar pairs apart in embedding space.
 
-**GANs** — generator produces fake data, discriminator distinguishes real from fake. Adversarial dynamic produces sharp, high-quality samples. Training is notoriously unstable (mode collapse, balancing). Dominated image generation 2016-2021, then replaced by diffusion. Core insight: the discriminator is a *learned loss function* — when you can't write a formula for "good output," train a network to judge it.
-- *Examples:* DCGAN (2015, first stable image GAN), StyleGAN (2019, photorealistic face generation), Pix2Pix (2017, image-to-image translation), CycleGAN (2017, unpaired style transfer).
+<br>
 
-**Diffusion** — define a noise-adding process that destroys data over T steps. Train a network to reverse each step. Generation: start from noise, iteratively denoise. Training is stable (simple regression objective — predict the noise). Quality matches or exceeds GANs. Cost: hundreds of denoising steps per sample. Key insight: iterative refinement allocates compute proportionally to difficulty.
-- *Examples:* DALL-E 2 (2022), Stable Diffusion (2022, open-source image generation), Midjourney, Sora (2024, video generation), Mercury (2025, diffusion applied to text token generation).
+**Reinforcement learning** — no correct answers, only rewards.
+- Model takes actions, receives sparse/delayed reward, learns a policy.
+- Much harder than supervised — weak learning signal, credit assignment problem.
+- *Examples:* AlphaGo/AlphaZero (2016-2017), OpenAI Five (2019), RLHF for LLM alignment (InstructGPT 2022, used in ChatGPT, Claude, etc.), robotics control (RT-2).
+
+<br>
+
+**GANs** — generator produces fake data, discriminator distinguishes real from fake.
+- Adversarial dynamic produces sharp, high-quality samples. Training is notoriously unstable (mode collapse, balancing).
+- Dominated image generation 2016-2021, then replaced by diffusion.
+- Core insight: the discriminator is a *learned loss function* — when you can't write a formula for "good output," train a network to judge it.
+- *Examples:* DCGAN (2015), StyleGAN (2019, photorealistic faces), Pix2Pix (2017, image-to-image), CycleGAN (2017, unpaired style transfer).
+
+<br>
+
+**Diffusion** — define a noise-adding process that destroys data over T steps. Train a network to reverse each step.
+- Generation: start from noise, iteratively denoise. Training is stable (simple regression — predict the noise).
+- Quality matches or exceeds GANs. Cost: hundreds of denoising steps per sample.
+- Key insight: iterative refinement allocates compute proportionally to difficulty.
+- *Examples:* DALL-E 2 (2022), Stable Diffusion (2022, open-source), Midjourney, Sora (2024, video), Mercury (2025, diffusion for text tokens).
 
 ---
 
@@ -548,15 +609,79 @@ Architecture choice is driven by data structure, task requirements, data quantit
 
 ### Worked Examples
 
-**Example 1: Medical image classification.** You have X-ray images and diagnostic labels. The data is on a grid. Spatial locality matters — a lesion is a local pattern. Translation invariance holds — a fracture looks the same regardless of where in the image it appears. This points to convolutions. The dataset is small (thousands of labeled images, not millions). Strong inductive bias needed — pretrained ResNet or EfficientNet, fine-tuned on your data. The encoder (pixel grid) is natural. The training framework is supervised. If you also need to incorporate the radiologist's text notes, you'd add an attention-based text encoder with a multimodal fusion layer — but the image backbone stays convolutional.
+These walk through the reasoning from problem to architecture — the thought process, not just the answer.
 
-**Example 2: Real-time sensor anomaly detection.** Streaming data from industrial sensors. Strictly sequential, strictly causal — you can't look at future readings. The stream never ends, so you can't buffer the whole history. This rules out attention (quadratic cost, needs the full sequence). Recurrence or SSMs give you constant memory and causal processing by construction. The data is continuous and time-varying — SSMs are a natural fit because they model continuous-time dynamics. If you also need to detect patterns across multiple sensors simultaneously, add a graph structure over the sensor network and do message passing between sensor nodes at each time step.
+<br>
 
-**Example 3: Code generation from natural language.** Sequential input (text), sequential output (code). Long-range dependencies — a variable defined at the top of the function matters at the bottom. Content-dependent relevance — which parts of the specification are relevant to the current line of code depends on what's being generated. This points to attention (transformer). The input and output are the same modality (text tokens), so decoder-only works. The task benefits from massive pretraining on code corpora (self-supervised, next-token prediction) followed by supervised fine-tuning on instruction-code pairs and RLHF for alignment with user intent. The encoder is a subword tokenizer — choose one that handles code well (preserves indentation tokens, doesn't split common keywords).
+**Example 1: Medical image classification**
 
-**Example 4: Molecular property prediction.** Molecules are graphs — atoms are nodes, bonds are edges. The structure is known and physically meaningful. This is graph networks. Message passing propagates information along bonds, building up representations that capture local chemical environment (one hop = immediate neighbors) through extended structure (multiple hops). If the molecule is large and global properties matter (electron delocalization across the whole structure), add attention layers that let distant atoms interact directly. The encoder is the hardest part: choosing what features to attach to each atom (element, charge, hybridization) and each bond (type, length, aromaticity) requires domain knowledge that determines the ceiling.
+| Aspect | Reasoning |
+|--------|-----------|
+| Data structure | Grid (X-ray images) |
+| Key property | Spatial locality — a lesion is a local pattern |
+| Translation invariance? | Yes — a fracture looks the same anywhere in the image |
+| → Architecture | **Convolutions** |
+| Data quantity | Small (thousands, not millions) → strong inductive bias needed |
+| → Approach | Pretrained ResNet or EfficientNet, fine-tuned |
+| Framework | Supervised (images + diagnostic labels) |
+| Encoder | Pixel grid — natural, no design needed |
+| If adding text notes? | Attention-based text encoder + multimodal fusion. Image backbone stays convolutional. |
 
-**Example 5: Multi-turn dialogue system.** Text in, text out. But the design decisions go beyond "use a transformer." The core model is a decoder-only transformer (pretrained, probably frozen). The real architecture questions are about what goes around it: how to encode and manage conversation history (context engineering), when to retrieve external knowledge vs rely on the model's training (RAG vs parametric knowledge), how to handle tool calls (output gating and routing), and how to maintain state across turns (inter-call memory management). These are gating and control problems — the sections on gates, encoding, and frozen-model interfaces are more relevant here than the sections on raw architecture.
+<br>
+
+**Example 2: Real-time sensor anomaly detection**
+
+| Aspect | Reasoning |
+|--------|-----------|
+| Data structure | Streaming time series from industrial sensors |
+| Key property | Strictly causal — can't look at future readings |
+| Sequence length | Infinite — stream never ends, can't buffer |
+| → Architecture | **Recurrence or SSMs** (constant memory, causal by construction) |
+| Why not attention? | Quadratic cost, needs the full sequence buffered |
+| Why SSMs specifically? | Data is continuous and time-varying — SSMs model continuous-time dynamics |
+| If multiple sensors? | Add graph structure over sensor network. Message passing between nodes at each step. |
+
+<br>
+
+**Example 3: Code generation from natural language**
+
+| Aspect | Reasoning |
+|--------|-----------|
+| Data structure | Sequential text → sequential code |
+| Key property | Long-range dependencies (variable at top of function matters at bottom) |
+| Relevance pattern | Content-dependent — which spec parts matter depends on current generation |
+| → Architecture | **Attention (transformer)** |
+| Input/output modality | Same (text tokens) → decoder-only |
+| Training strategy | Pretrain on code corpora (self-supervised, next-token) → fine-tune on instruction-code pairs → RLHF for alignment |
+| Encoder | Subword tokenizer that handles code well (preserves indentation, doesn't split keywords) |
+
+<br>
+
+**Example 4: Molecular property prediction**
+
+| Aspect | Reasoning |
+|--------|-----------|
+| Data structure | Graphs — atoms are nodes, bonds are edges |
+| Key property | Topology is known and physically meaningful |
+| → Architecture | **Graph networks** |
+| How it works | Message passing along bonds. 1 hop = immediate neighbors. Multiple hops = extended structure. |
+| If global properties matter? | Add attention layers so distant atoms can interact directly |
+| Hardest part | The **encoder** — choosing atom features (element, charge, hybridization) and bond features (type, length, aromaticity) requires domain knowledge. This determines the ceiling. |
+
+<br>
+
+**Example 5: Multi-turn dialogue system**
+
+| Aspect | Reasoning |
+|--------|-----------|
+| Data structure | Text in, text out |
+| Core model | Decoder-only transformer (pretrained, probably frozen) |
+| **The real decisions** | Not the core architecture — everything *around* it |
+| Context management | How to encode and manage conversation history |
+| Knowledge | When to retrieve (RAG) vs rely on training (parametric) |
+| Tool use | Output gating and routing |
+| Memory | State management across turns |
+| Where to look | The sections on **gates**, **encoding**, and **frozen-model interfaces** are more relevant than raw architecture |
 
 ### Hybrid Architectures
 
@@ -600,6 +725,8 @@ Common problem shapes and the class of solutions that address them. This is the 
 
 **Not the solution:** More training. More layers. Fancier optimizer. These add capacity or training intensity to a model that already has too much of both.
 
+<br>
+
 ### When the Model Underfits
 
 **Signal:** Both training and validation loss are high. The model isn't learning the pattern at all.
@@ -613,11 +740,18 @@ Common problem shapes and the class of solutions that address them. This is the 
 4. Check the architecture. A CNN on sequential data, or dense layers on an image — the wrong inductive bias wastes capacity fighting the data structure.
 5. Check the data. Noisy labels, preprocessing bugs, or insufficient features create hard ceilings that no model can overcome.
 
+<br>
+
 ### When Local Patterns Work but Global Context Is Missing
 
 **Signal:** The model handles simple, localized examples well but fails on examples that require integrating distant information. A CNN that classifies isolated objects but fails when the scene context matters. A local model that handles individual sentences but misses cross-paragraph references.
 
-**Reach for:** Add attention layers on top of the local model. Convolutions handle the local features cheaply, attention handles the global routing. Or increase depth so the receptive field of the convolutional stack spans the full input. Or switch to a transformer if the problem is fundamentally global.
+**Reach for:**
+- Add attention layers on top of the local model — convolutions handle local features cheaply, attention handles global routing.
+- Or increase depth so the receptive field spans the full input.
+- Or switch to a transformer if the problem is fundamentally global.
+
+<br>
 
 ### When Short Sequences Work but Long Ones Degrade
 
@@ -625,7 +759,13 @@ Common problem shapes and the class of solutions that address them. This is the 
 
 **Diagnosis:** Compression bottleneck (recurrence), quadratic cost (attention), or positional encoding limits (some transformers can't generalize beyond trained lengths).
 
-**Reach for:** SSMs for efficient long-range (linear cost, principled compression). Sparse attention for retaining direct access while reducing cost. Sliding window attention for local context with occasional global tokens. If using recurrence, check whether the hidden state is large enough — increasing state size extends the compression horizon.
+**Reach for:**
+- SSMs for efficient long-range (linear cost, principled compression).
+- Sparse attention for retaining direct access while reducing cost.
+- Sliding window attention for local context with occasional global tokens.
+- If using recurrence, check the hidden state size — increasing it extends the compression horizon.
+
+<br>
 
 ### When the Model Needs to Handle a New Modality
 
@@ -633,7 +773,12 @@ Common problem shapes and the class of solutions that address them. This is the 
 
 **This is an encoder problem, not an architecture problem.** The core model usually stays the same. The decision is: how to encode the new modality, and how to align it with the existing representation.
 
-**Approach:** Per-modality encoder projecting into the shared dimensionality. The encoder must preserve what the downstream model needs. The alignment is the hard part — either contrastive training on paired data (CLIP-style) or joint training where the gradient tells both encoders what to preserve.
+**Approach:**
+- Per-modality encoder projecting into the shared dimensionality.
+- The encoder must preserve what the downstream model needs.
+- The alignment is the hard part — contrastive training on paired data (CLIP-style) or joint training where the gradient tells both encoders what to preserve.
+
+<br>
 
 ### When You Can't Define the Loss Function
 
@@ -642,6 +787,8 @@ Common problem shapes and the class of solutions that address them. This is the 
 **Reach for:** A learned loss function. Train a discriminator (GAN) or a reward model (RLHF) on examples of good and bad outputs. The learned model becomes the loss function. This converts human judgment into gradient signal.
 
 **The tradeoff:** The learned loss is only as good as its training examples. Gaps in coverage become exploitable weaknesses — the generator finds outputs the discriminator can't evaluate.
+
+<br>
 
 ### When Training Is Unstable
 
@@ -655,13 +802,18 @@ Common problem shapes and the class of solutions that address them. This is the 
 5. Batch size — too small gives noisy gradient estimates. Too large can converge to sharp minima. 32-256 is usually a safe range.
 6. If using GANs — adversarial training is inherently unstable. Consider switching to diffusion if the instability is persistent.
 
+<br>
+
 ### When You Need the Model to Say "I Don't Know"
 
 **Signal:** The model must distinguish between confident predictions and uncertain ones. High-stakes decisions, active learning, safety-critical systems.
 
 **Standard approach:** Calibrated confidence scores. Softmax outputs are often overconfident — calibration techniques (temperature scaling, Platt scaling) adjust them to reflect true uncertainty.
 
-**Stronger approaches:** Ensembles (train multiple models, disagreement = uncertainty). Monte Carlo dropout (run inference multiple times with dropout active, variance = uncertainty). Energy-based models (multiple low-energy states = genuine ambiguity in the input, not just model uncertainty).
+**Stronger approaches:**
+- **Ensembles** — train multiple models. Disagreement = uncertainty.
+- **Monte Carlo dropout** — run inference multiple times with dropout active. Variance = uncertainty.
+- **Energy-based models** — multiple low-energy states = genuine ambiguity in the input, not just model uncertainty.
 
 > **Key insight:** Most of these patterns have a common shape: identify what structural property of the data or task is being violated, then choose the tool that addresses that specific property. The wrong diagnosis leads to the wrong solution — adding capacity when the problem is regularization, adding attention when the problem is encoding, adding data when the problem is architecture.
 
