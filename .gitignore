@@ -2,3 +2,7 @@
 primer.md
 study-recurrence.md
 CLAUDE.md
+
+# Environment
+.venv/
+__pycache__/

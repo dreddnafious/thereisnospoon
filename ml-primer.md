@@ -27,6 +27,8 @@ Two vectors in, one scalar out. The result depends on three things: the directio
 
 A neuron is a half-space detector. The set of all inputs where `w · x + b = 0` forms a boundary — a line in 2D, a plane in 3D, a hyperplane in higher dimensions. On one side z is positive, on the other negative. The magnitude of z tells you how far from the boundary you are. The neuron gives you a side (which half) and a distance (how deep).
 
+![A single neuron divides 2D input space along a hyperplane. Left: z values as a gradient showing positive and negative regions. Right: after ReLU, the negative side is clamped to zero.](figures/01_neuron_hyperplane.png)
+
 **The bias** is a scalar, not a vector. It shifts the boundary. Without it, the hyperplane always passes through the origin. With it, the boundary can be positioned anywhere. The bias is a threshold — how aligned does the input need to be before the neuron responds positively?
 
 **The nonlinearity** (`f`) transforms z into the neuron's output. Without it, stacking layers collapses into a single linear operation. The nonlinearity breaks linearity and gives the network expressive power.
@@ -44,6 +46,8 @@ Each activation function is a different policy for what to do with the side-and-
 **RePU: `max(0, z)^p`** — An amplifier. Polynomial activation. A single neuron can represent curves, not just lines. But the gradient grows with z, so large activations produce large gradients. Risk: gradient explosion — the opposite failure mode from sigmoid.
 
 **GELU: `z * Φ(z)`** — A proportional valve. Multiplies z by the probability that z is "large" under a standard normal distribution. Near zero, it smoothly modulates rather than hard-switching. No dead zone, no hard cutoff. Transformers use GELU because attention produces many near-zero signals, and the smooth response lets the network learn fine distinctions near the decision boundary.
+
+![Activation functions and their derivatives side by side. Each function is a different valve on the signal pipeline.](figures/02_activation_functions.png)
 
 ### The Polarizing Filter Analogy
 
@@ -70,6 +74,8 @@ More neurons: more folds, more creases. The paper is now a creased, partially fl
 The next layer draws straight lines on this folded paper and cuts. Unfold the paper. The straight cuts are no longer straight — they're bent at every crease. The folds turned straight cuts into complex boundaries.
 
 **Each layer folds. Each subsequent layer cuts. The folds make simple cuts produce complex boundaries in the original space. The folds are the activation function.** Without the activation function there's no fold — the space passes through unchanged and depth adds nothing.
+
+![Paper folding: original space, one ReLU fold, two ReLU folds. Straight cuts in folded space become kinked cuts when unfolded.](figures/03_paper_folding.png)
 
 ### Width vs Depth Tradeoff
 
@@ -114,6 +120,8 @@ dL/dw = dL/da * da/dz * dz/dw
 ```
 
 The weight update is proportional to how wrong the output was, gated by whether the neuron was active, scaled by the input. Each term makes sense alone. The chain rule multiplies them.
+
+![The chain rule as a pipeline. Forward signal flows right, backward gradient flows left. Total gradient is the product of local rates.](figures/04_chain_rule_pipeline.png)
 
 **Backpropagation** is the chain rule applied layer by layer from output to input. Each layer receives an error signal from above, computes its weight updates, and passes a transformed error signal backward. The activation function's derivative gates the backward signal at each layer — this is why the choice of nonlinearity matters for learning, not just representation.
 
@@ -229,6 +237,8 @@ A transformer block: self-attention (route information between elements), feed-f
 
 Each element in the sequence generates Q, K, V vectors via learned projection matrices. Each element's query is dot-producted against all keys to determine relevance. Softmax produces attention weights. Output is weighted sum of values. Connectivity is dynamic — determined by content, computed fresh for every input.
 
+![Self-attention on a 5-token sequence. Left: raw Q·K scores. Center: after softmax. Right: "it" attends mostly to "cat" — pronoun resolution emerges from dot product alignment.](figures/05_attention_mechanism.png)
+
 ### Multi-Head Attention
 
 Multiple independent attention operations in parallel, each on a slice of the vector. Each head learns a different relevance pattern (syntactic, semantic, positional). Outputs are concatenated losslessly, then a projection remixes them into a unified representation. This isn't finer resolution of the same measurement — it's multiple *different* measurements. Each head asks a different question about which elements are relevant.
@@ -243,11 +253,15 @@ Per-element, position-independent. Expansion to higher dimension (512 → 2048),
 
 Attention routes information between elements. The FFN applies stored knowledge per element. Division of labor is clean.
 
+![FFN as volumetric lookup. Left: input vector. Center: expanded space with activated neighborhood (bright) and silent features (gray). Right: architecture — expand, activate, contract.](figures/06_ffn_volumetric.png)
+
 FFN layers are where factual knowledge lives. Specific rows of W₁ activate for specific facts. This is the basis for model editing techniques (ROME, MEMIT) — treating the FFN as a key-value memory and writing directly to it.
 
 ### Residual Connections
 
 `output = x + Sublayer(x)`. Each layer adds a delta rather than replacing. The vector is a running sum: `x + delta_1 + delta_2 + ... + delta_N`. Preservation is the default — a layer must actively write to contribute, but does nothing to preserve. Gradient flows directly through addition (derivative = 1) regardless of depth. Individual deltas recoverable by subtracting consecutive intermediate vectors.
+
+![Residual connections. Left: each block adds a delta to the running sum — preservation is the default. Right: gradient flows at full strength through the additive highway.](figures/07_residual_connections.png)
 
 ### Encoder-Decoder vs Decoder-Only
 
@@ -391,6 +405,8 @@ These compose into arbitrary soft logic. Everything is continuous — no hard 0s
 **Rotation** — change direction without changing magnitude. Reorient the representation between "frames of reference." RoPE is a rotation. Orthogonal matrix gates reorganize information without losing it.
 
 **Interpolation** — `g · x₁ + (1-g) · x₂` traces a straight line between two points in vector space. Everywhere: residual connections, gate blends, soft routing. **Spherical interpolation (slerp)** follows the arc of a sphere, preserving magnitude — used in diffusion sampling and model weight merging.
+
+![Geometric gating operations: projection (shadow onto subspace), masking (zero specific axes), rotation (change direction, keep magnitude), interpolation (blend between representations).](figures/08_gating_operations.png)
 
 All gating is some combination of: scaling, masking, projection, rotation, interpolation. The design skill is matching the geometric operation to the information flow requirement — identifying what functional behavior you need, then choosing the mathematical shape that provides it.
 
