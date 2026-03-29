@@ -1,8 +1,8 @@
 # There Is No Spoon
 
-A machine learning primer built from first principles. Written for engineers who want to reason about ML systems the way they reason about software systems.
+![There Is No Spoon — A Machine Learning Primer](figures/logo.svg)
 
-![Activation functions and their derivatives — each is a different valve on the signal pipeline](figures/02_activation_functions.png)
+A machine learning primer built from first principles. Written for engineers who want to reason about ML systems the way they reason about software systems.
 
 ## Who This Is For
 
