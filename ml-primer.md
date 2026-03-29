@@ -4,7 +4,25 @@ A high-signal reference built from first principles. Not a textbook — a mental
 
 **How to read this.** Each section builds on the ones before it. The Neuron and Composition sections establish the geometric intuition that everything else depends on. Learning as Optimization requires the chain rule, which requires derivatives. The Combination Rule Family and Transformer sections assume you understand the neuron, composition, and optimization. Gates assume all of the above. If something doesn't make sense, check the earlier section it references.
 
-**Notation.** `σ` = sigmoid function. `⊙` = element-wise (Hadamard) multiplication. `Φ(z)` = cumulative distribution function of the standard normal. `||x||` = magnitude (norm) of vector x. `∑` = sum. `ε` = infinitesimally small value.
+### Notation
+
+| Symbol | Meaning | Example |
+|--------|---------|---------|
+| **w**, **x** | Vectors (bold) | **w** = [0.3, 0.7, -0.2] |
+| `w · x` | Dot product — multiply corresponding elements, sum the results | [1, 2] · [3, 4] = 1×3 + 2×4 = 11 |
+| `⊙` | Element-wise multiplication — multiply corresponding elements, keep as vector | [1, 2] ⊙ [3, 4] = [3, 8] |
+| `W · x` | Matrix-vector multiplication (capital W = matrix) | Transforms a vector through learned weights |
+| `\|x\|` | Magnitude (norm) of a vector — its length | \|[3, 4]\| = √(9+16) = 5 |
+| `σ` | Sigmoid function: σ(x) = 1/(1+e^(-x)) | Maps any number to (0, 1) |
+| `Φ(z)` | Standard normal CDF — probability that a normal random variable is < z | Used in GELU activation |
+| `∑` | Summation — add up a series of values | ∑xᵢ = x₁ + x₂ + ... + xₙ |
+| `ε` | An infinitesimally small value | Used in derivative derivations |
+| `f'(x)` | Derivative of f with respect to x | f(x) = x² → f'(x) = 2x |
+| `df/dx` | Same as f'(x), alternative notation | Reads as "the rate of change of f per change in x" |
+| `θ` | Angle between two vectors | Used in dot product: w · x = \|w\| \|x\| cos(θ) |
+| `e` | Euler's number ≈ 2.718 | The base of the natural exponential; e^x is its own derivative |
+| `ln(x)` | Natural logarithm — the inverse of e^x | ln(e^x) = x |
+| `→` | "maps to" or "produces" | f(x) = x² → f'(x) = 2x |
 
 ---
 
