@@ -10,22 +10,51 @@ A high-signal reference built from first principles. Not a textbook — a mental
 
 ## The Neuron
 
-A neuron computes one number from a vector of inputs.
+A neuron computes one number from a vector of inputs. That's it. Everything else in ML is arrangements of this.
 
 ```
 z = w · x + b
 output = f(z)
 ```
 
-**The dot product** (`w · x`) measures how much the input **x** points in the same direction as the weight vector **w**.
+Three steps: take the dot product of the weights and the input, add a bias, pass through a nonlinearity. To understand the neuron, you need to understand each step.
+
+### The Dot Product
+
+A dot product takes two vectors and produces a single number. Mechanically, you multiply corresponding elements and sum:
+
+```
+w = [w₁, w₂, w₃]
+x = [x₁, x₂, x₃]
+
+w · x = w₁x₁ + w₂x₂ + w₃x₃
+```
+
+Two vectors in, one scalar out. But what does this number *mean*?
+
+Geometrically, the dot product measures **alignment** — how much one vector points in the same direction as another:
 
 ```
 w · x = |w| |x| cos(θ)
 ```
 
-Two vectors in, one scalar out. The result depends on three things: the direction of **w** (what the neuron is selective for), the magnitude of **w** (how aggressively it responds), and the input itself. If the input is perfectly aligned but tiny, z is small. If the input is large but orthogonal to **w**, z is zero.
+where θ is the angle between the two vectors. If they point the same direction (θ = 0°), cos(θ) = 1 and the dot product is maximally positive. If perpendicular (θ = 90°), cos(θ) = 0 and the dot product is zero. If opposite (θ = 180°), cos(θ) = -1 and the dot product is maximally negative.
 
-A neuron is a half-space detector. The set of all inputs where `w · x + b = 0` forms a boundary — a line in 2D, a plane in 3D, a hyperplane in higher dimensions. On one side z is positive, on the other negative. The magnitude of z tells you how far from the boundary you are. The neuron gives you a side (which half) and a distance (how deep).
+![The dot product measures alignment between two vectors. Same direction: large positive. Perpendicular: zero. Opposite: large negative.](figures/09_dot_product.png)
+
+The dot product depends on both alignment (the angle) and magnitude (the lengths of both vectors). Two perfectly aligned vectors produce a small dot product if either is short. Two long vectors produce a small dot product if they're nearly perpendicular. You need both alignment *and* magnitude for a strong response.
+
+### What the Neuron Computes
+
+The neuron's weight vector **w** defines a direction — the direction the neuron "cares about." The dot product `w · x` asks: **how much of the input points in my preferred direction?**
+
+The result is a single number z that encodes two things: its sign tells you which side of the neuron's preferred direction the input falls on, and its magnitude tells you how strongly the input aligns.
+
+**The bias** is a scalar, not a vector. It shifts the threshold. Without it, the neuron's decision boundary (where z = 0) always passes through the origin. With it, the boundary can be positioned anywhere. The bias is a threshold — how aligned does the input need to be before the neuron responds positively?
+
+The set of all inputs where `w · x + b = 0` forms a boundary — a line in 2D, a plane in 3D, a hyperplane in higher dimensions. The neuron divides the entire input space in half along this boundary. On one side z is positive, on the other negative. The magnitude of z tells you how far from the boundary you are.
+
+A neuron is a half-space detector. It gives you a side (which half) and a distance (how deep).
 
 ![A single neuron divides 2D input space along a hyperplane. Left: z values as a gradient showing positive and negative regions. Right: after ReLU, the negative side is clamped to zero.](figures/01_neuron_hyperplane.png)
 
@@ -91,37 +120,131 @@ A single wide layer can approximate any function (universal approximation theore
 
 ## Learning as Optimization
 
-### Derivatives and the Chain Rule
+The network starts with random weights. Its output is wrong. Learning is the process of adjusting every weight so the output gets less wrong. To understand how, you need derivatives and the chain rule. If you're already comfortable with calculus, skip to [The Chain Rule](#the-chain-rule).
 
-A derivative is rise over run at the limit — how much the output changes per infinitesimal change in input. It's a local exchange rate.
+### What a Derivative Is
 
-For `f(x) = x²`: nudge x by ε, expand `(x + ε)² = x² + 2xε + ε²`, subtract f(x), divide by ε, let ε vanish. What survives is 2x. The power rule generalizes: `d/dx[x^n] = nx^(n-1)`.
+A derivative answers a simple question: **if I nudge the input a little, how much does the output change?**
 
-Common derivative rules:
-```
-f(x) = x^n   →  f'(x) = nx^(n-1)    power rule
-f(x) = e^x   →  f'(x) = e^x          exponential (rate of change equals itself)
-f(x) = ln(x) →  f'(x) = 1/x          logarithm
-f(x) = sin(x)→  f'(x) = cos(x)       trig
-f(x) = c     →  f'(x) = 0            constant
-```
-
-**The chain rule**: for composed functions, the total rate of change is the product of the local rates. Like a gear train — each gear has a ratio, the overall ratio is the product. Like unit conversion — miles/gallon × gallons/hour = miles/hour.
+For a function `f(x) = x²`, you can see this with concrete numbers:
 
 ```
-f(g(x)):  df/dx = df/dg * dg/dx
+f(3)    = 9
+f(3.01) = 9.0601     change of 0.0601 for a nudge of 0.01 → rate ≈ 6.01
+f(3.001)= 9.006001   change of 0.006001 for a nudge of 0.001 → rate ≈ 6.001
 ```
 
-For a neuron: `z = wx + b`, `a = ReLU(z)`, `L = (a - y)²`
+As the nudge gets smaller, the rate converges to exactly 6. That's the derivative of x² at x = 3: the slope of the curve at that exact point.
+
+![Derivative as slope: the tangent line at a point on x². The derivative gives the rate of change — how steeply the curve is rising right here, right now.](figures/10_derivative_slope.png)
+
+The left panel shows tangent lines at different points on the curve x². The slope (derivative) changes as you move along the curve: negative on the left, zero at the bottom, increasingly positive on the right. The right panel shows the "nudge" method converging: as ε shrinks, the secant line (rise/run between two points) approaches the tangent line (the true derivative).
+
+A derivative is just **rise over run**, but for an infinitely small run. It's a local exchange rate — how much output you get per unit of input, at this specific point.
+
+### Deriving a Derivative from Scratch
+
+Let's derive the derivative of `f(x) = x²` from first principles. Start at some point x, nudge it by a tiny amount ε, and measure how f changes.
+
+First, expand `(x + ε)²`. This uses **FOIL** — a method for multiplying two binomials (expressions with two terms). FOIL stands for First, Outer, Inner, Last:
 
 ```
-dL/dw = dL/da * da/dz * dz/dw
-      = 2(a-y) * (1 or 0) * x
+(x + ε)(x + ε)
+
+First:  x · x = x²
+Outer:  x · ε = xε
+Inner:  ε · x = xε
+Last:   ε · ε = ε²
+
+Sum: x² + xε + xε + ε² = x² + 2xε + ε²
 ```
 
-The weight update is proportional to how wrong the output was, gated by whether the neuron was active, scaled by the input. Each term makes sense alone. The chain rule multiplies them.
+FOIL is just the distributive property applied systematically — every term in the first parentheses multiplied by every term in the second, so you don't miss any combinations.
+
+Now compute the rise (how much f changed):
+
+```
+f(x + ε) - f(x) = (x² + 2xε + ε²) - x²
+                 = 2xε + ε²
+```
+
+We subtracted f(x) = x² because we want to isolate how much the nudge moved the output, not the output itself.
+
+Divide by the run (ε) to get the rate:
+
+```
+rate = (2xε + ε²) / ε = 2x + ε
+```
+
+Now let ε shrink to zero. The ε term vanishes, and what survives is **2x**.
+
+That's the derivative of x². At x = 3, the derivative is 2(3) = 6 — matching our numerical experiment above.
+
+### The Power Rule and Common Derivatives
+
+The same process works for any power of x. The pattern:
+
+```
+f(x) = x¹   →  f'(x) = 1        (constant slope)
+f(x) = x²   →  f'(x) = 2x       (we just derived this)
+f(x) = x³   →  f'(x) = 3x²
+f(x) = x⁴   →  f'(x) = 4x³
+```
+
+The rule: bring the exponent down as a multiplier, reduce the exponent by one. For x^n, the derivative is nx^(n-1). This is the **power rule**.
+
+Other common derivatives you'll encounter in ML:
+
+```
+f(x) = e^x   →  f'(x) = e^x      the function whose rate of change equals itself
+                                    (this is why e appears everywhere in ML)
+f(x) = ln(x) →  f'(x) = 1/x
+f(x) = sin(x)→  f'(x) = cos(x)
+f(x) = c     →  f'(x) = 0         a constant doesn't change, so the rate is zero
+```
+
+Each of these can be derived the same way — write out f(x + ε) - f(x), divide by ε, shrink ε to zero. They just involve more algebra.
+
+### The Chain Rule
+
+In a neural network, the output depends on the last layer, which depends on the previous layer, which depends on the one before that. To learn, we need to know how changing a weight in layer 1 affects the final output. That's a chain of dependencies.
+
+The chain rule says: **the total rate of change through a chain of functions is the product of the local rates.** Multiply each link's rate together.
+
+```
+f(g(x)):  df/dx = df/dg × dg/dx
+```
+
+Think of it as a **gear train**. The first gear converts x-motion into g-motion at some ratio. The second gear converts g-motion into f-motion at some ratio. The overall ratio is the product of the individual ratios.
+
+Or think of it as **unit conversion**: miles/gallon × gallons/hour = miles/hour. The intermediate unit (gallons) cancels out.
+
+For a single neuron with ReLU and squared-error loss:
+
+```
+z = wx + b          (linear step)
+a = ReLU(z)         (activation)
+L = (a - y)²        (loss)
+```
+
+We want dL/dw — how changing the weight affects the loss:
+
+```
+dL/dw = dL/da × da/dz × dz/dw
+```
+
+Each factor is a local derivative using whatever rule fits:
+- `dL/da = 2(a - y)` — power rule on the loss. How wrong is the output?
+- `da/dz = 1 or 0` — ReLU's derivative. Is the neuron active?
+- `dz/dw = x` — z = wx + b is linear in w, so the rate is just x.
+
+Multiply them: **`dL/dw = 2(a - y) × (1 or 0) × x`**
+
+The weight update is proportional to how wrong the output was, gated by whether the neuron was active, scaled by the input. Each term makes sense on its own. The chain rule just says: multiply them.
 
 ![The chain rule as a pipeline. Forward signal flows right, backward gradient flows left. Total gradient is the product of local rates.](figures/04_chain_rule_pipeline.png)
+
+In a deep network, the chain just gets longer — one factor per layer. Each factor is still a simple local derivative. This is what makes deep learning work: you never have to understand the whole network at once. Each layer contributes its local rate, and the product gives you the global gradient.
 
 **Backpropagation** is the chain rule applied layer by layer from output to input. Each layer receives an error signal from above, computes its weight updates, and passes a transformed error signal backward. The activation function's derivative gates the backward signal at each layer — this is why the choice of nonlinearity matters for learning, not just representation.
 
@@ -130,6 +253,8 @@ The weight update is proportional to how wrong the output was, gated by whether 
 Every possible configuration of weights maps to a loss value. This surface has as many dimensions as there are weights. Training is finding a low point.
 
 **Gradient descent**: compute the slope in every direction, step opposite to steepest ascent. Repeated small steps downhill.
+
+![The loss landscape. Left: top-down view showing gradient descent following the slope toward a minimum. Right: cross-section showing the difference between sharp minima (fragile), flat minima (robust), and saddle points (stuck but escapable).](figures/11_loss_landscape.png)
 
 ### Why Things Get Stuck
 
@@ -212,6 +337,8 @@ GPU floating point operations don't guarantee execution order — identical inpu
 ## The Combination Rule Family
 
 Every architecture does three things: combine inputs according to some rule, apply a nonlinearity, repeat. The only difference between architectures is step 1 — the combination rule. That's where the inductive bias lives.
+
+![Combination rules: how each architecture connects inputs. Dense connects everything. Convolution connects local neighbors with shared weights. Recurrence carries state forward sequentially. Attention connects dynamically based on content. Graph connects along given topology.](figures/12_combination_rules.png)
 
 **Dense** — every input connects to every output. No assumption. Maximum flexibility, maximum parameters.
 
