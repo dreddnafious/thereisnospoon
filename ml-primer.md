@@ -530,7 +530,9 @@ The training objective — what the model optimizes for. Independent of architec
 
 You know the building blocks. Now: given a problem, how do you choose?
 
-Architecture choice is driven by data structure, task requirements, data quantity, and compute constraints.
+Architecture choice is driven by data structure, task requirements, data quantity, and compute constraints. This section is the decision guide — the part that connects everything above to the question "what do I actually build?"
+
+### The Decision Table
 
 | Question | Signal | Architecture |
 |----------|--------|-------------|
@@ -544,9 +546,124 @@ Architecture choice is driven by data structure, task requirements, data quantit
 | Very little data? | Need strong inductive bias | Architecture with matching assumptions |
 | Abundant data? | Can learn structure from scale | Transformer |
 
-**Practical reality:** most practitioners start with a transformer. If it works, they stop. At sufficient scale, architecture matters less — the transformer learns what other architectures would have given for free. The counterpoint: that's wasteful when the budget is limited and the right inductive bias would do the same job with 10x fewer parameters.
+### Worked Examples
 
-**Hybrid architectures** use the cheapest operation at each level. Convolutions for local patterns. Attention for global routing. Recurrence/SSMs for long-range persistence. The design principle: match the operation to the structure at each stage of processing.
+**Example 1: Medical image classification.** You have X-ray images and diagnostic labels. The data is on a grid. Spatial locality matters — a lesion is a local pattern. Translation invariance holds — a fracture looks the same regardless of where in the image it appears. This points to convolutions. The dataset is small (thousands of labeled images, not millions). Strong inductive bias needed — pretrained ResNet or EfficientNet, fine-tuned on your data. The encoder (pixel grid) is natural. The training framework is supervised. If you also need to incorporate the radiologist's text notes, you'd add an attention-based text encoder with a multimodal fusion layer — but the image backbone stays convolutional.
+
+**Example 2: Real-time sensor anomaly detection.** Streaming data from industrial sensors. Strictly sequential, strictly causal — you can't look at future readings. The stream never ends, so you can't buffer the whole history. This rules out attention (quadratic cost, needs the full sequence). Recurrence or SSMs give you constant memory and causal processing by construction. The data is continuous and time-varying — SSMs are a natural fit because they model continuous-time dynamics. If you also need to detect patterns across multiple sensors simultaneously, add a graph structure over the sensor network and do message passing between sensor nodes at each time step.
+
+**Example 3: Code generation from natural language.** Sequential input (text), sequential output (code). Long-range dependencies — a variable defined at the top of the function matters at the bottom. Content-dependent relevance — which parts of the specification are relevant to the current line of code depends on what's being generated. This points to attention (transformer). The input and output are the same modality (text tokens), so decoder-only works. The task benefits from massive pretraining on code corpora (self-supervised, next-token prediction) followed by supervised fine-tuning on instruction-code pairs and RLHF for alignment with user intent. The encoder is a subword tokenizer — choose one that handles code well (preserves indentation tokens, doesn't split common keywords).
+
+**Example 4: Molecular property prediction.** Molecules are graphs — atoms are nodes, bonds are edges. The structure is known and physically meaningful. This is graph networks. Message passing propagates information along bonds, building up representations that capture local chemical environment (one hop = immediate neighbors) through extended structure (multiple hops). If the molecule is large and global properties matter (electron delocalization across the whole structure), add attention layers that let distant atoms interact directly. The encoder is the hardest part: choosing what features to attach to each atom (element, charge, hybridization) and each bond (type, length, aromaticity) requires domain knowledge that determines the ceiling.
+
+**Example 5: Multi-turn dialogue system.** Text in, text out. But the design decisions go beyond "use a transformer." The core model is a decoder-only transformer (pretrained, probably frozen). The real architecture questions are about what goes around it: how to encode and manage conversation history (context engineering), when to retrieve external knowledge vs rely on the model's training (RAG vs parametric knowledge), how to handle tool calls (output gating and routing), and how to maintain state across turns (inter-call memory management). These are gating and control problems — the sections on gates, encoding, and frozen-model interfaces are more relevant here than the sections on raw architecture.
+
+### Hybrid Architectures
+
+Real problems rarely fit one architecture perfectly. The practical approach: **use the cheapest operation that captures the structure at each level of processing.**
+
+- *Local patterns?* Convolutions. Cheap, strong assumption, few parameters.
+- *Global routing?* Attention. Expensive, flexible, content-dependent.
+- *Long-range persistence?* Recurrence or SSMs. Constant memory, causal.
+- *Known relationships?* Graph operations. Structure-aware, topology-dependent.
+
+Stack them where each one's strength is needed. Vision transformers use convolutional patch embedding (local) + attention across patches (global). Conformer uses convolutions and attention interleaved for speech. Jamba uses SSM layers for efficient long-range and attention layers for complex routing.
+
+The design principle: match the operation to the structure at each stage. Don't pay for global attention on local patterns. Don't force local convolutions on global dependencies.
+
+### The Scale Caveat
+
+**Practical reality:** most practitioners start with a transformer. If it works, they stop. At sufficient scale, architecture matters less — the transformer learns what other architectures would have given for free.
+
+The counterpoint: "sufficient scale" means billions of parameters and massive training budgets. If your budget is smaller, architecture choice matters enormously. A CNN with 10M parameters can match a transformer with 100M parameters on image tasks — if your budget is 10M parameters, the architecture decision is a 10x multiplier on effective capacity.
+
+---
+
+<br>
+
+## 🧩 Design Patterns
+
+Common problem shapes and the class of solutions that address them. This is the "I've seen this before" section — the patterns that recur across different domains and tasks.
+
+### When the Model Memorizes Instead of Learns
+
+**Signal:** Training loss keeps dropping. Validation loss stops improving or gets worse.
+
+**Diagnosis:** The model is fitting the specific training examples — including their noise — rather than the underlying pattern. This is an overfitting problem, not a capacity problem.
+
+**Solutions, in order of what to try first:**
+1. More data or data augmentation. The most reliable fix. The model is memorizing because it can — with more data, memorizing becomes harder than learning the pattern.
+2. Dropout. Forces distributed representation — no single neuron can memorize a specific example.
+3. Weight decay (L2 regularization). Penalizes large weights, pushing toward smoother functions.
+4. Early stopping. Stop training before the model starts fitting noise.
+5. Reduce model size. Only if the above don't work — smaller models have less capacity to memorize, but also less capacity to learn.
+
+**Not the solution:** More training. More layers. Fancier optimizer. These add capacity or training intensity to a model that already has too much of both.
+
+### When the Model Underfits
+
+**Signal:** Both training and validation loss are high. The model isn't learning the pattern at all.
+
+**Diagnosis:** The model doesn't have enough capacity, the learning rate is wrong, or the architecture's inductive bias doesn't match the data.
+
+**Solutions:**
+1. Make the model bigger (more layers, more width). If loss drops, the model was too small.
+2. Train longer. The model might not have converged yet.
+3. Check the learning rate. Too low = stalls. Too high = oscillates. Try a schedule.
+4. Check the architecture. A CNN on sequential data, or dense layers on an image — the wrong inductive bias wastes capacity fighting the data structure.
+5. Check the data. Noisy labels, preprocessing bugs, or insufficient features create hard ceilings that no model can overcome.
+
+### When Local Patterns Work but Global Context Is Missing
+
+**Signal:** The model handles simple, localized examples well but fails on examples that require integrating distant information. A CNN that classifies isolated objects but fails when the scene context matters. A local model that handles individual sentences but misses cross-paragraph references.
+
+**Reach for:** Add attention layers on top of the local model. Convolutions handle the local features cheaply, attention handles the global routing. Or increase depth so the receptive field of the convolutional stack spans the full input. Or switch to a transformer if the problem is fundamentally global.
+
+### When Short Sequences Work but Long Ones Degrade
+
+**Signal:** Performance is good up to some sequence length and degrades beyond it. The degradation may be gradual (recurrence, SSMs) or sudden (attention hitting memory limits).
+
+**Diagnosis:** Compression bottleneck (recurrence), quadratic cost (attention), or positional encoding limits (some transformers can't generalize beyond trained lengths).
+
+**Reach for:** SSMs for efficient long-range (linear cost, principled compression). Sparse attention for retaining direct access while reducing cost. Sliding window attention for local context with occasional global tokens. If using recurrence, check whether the hidden state is large enough — increasing state size extends the compression horizon.
+
+### When the Model Needs to Handle a New Modality
+
+**Signal:** You have a working system for one data type and need to add another — text + images, code + documentation, sensor data + metadata.
+
+**This is an encoder problem, not an architecture problem.** The core model usually stays the same. The decision is: how to encode the new modality, and how to align it with the existing representation.
+
+**Approach:** Per-modality encoder projecting into the shared dimensionality. The encoder must preserve what the downstream model needs. The alignment is the hard part — either contrastive training on paired data (CLIP-style) or joint training where the gradient tells both encoders what to preserve.
+
+### When You Can't Define the Loss Function
+
+**Signal:** You know what a good output looks like but can't write a formula for it. "Generate a realistic image." "Write a helpful response." "Produce natural-sounding speech."
+
+**Reach for:** A learned loss function. Train a discriminator (GAN) or a reward model (RLHF) on examples of good and bad outputs. The learned model becomes the loss function. This converts human judgment into gradient signal.
+
+**The tradeoff:** The learned loss is only as good as its training examples. Gaps in coverage become exploitable weaknesses — the generator finds outputs the discriminator can't evaluate.
+
+### When Training Is Unstable
+
+**Signal:** Loss spikes, NaN values, mode collapse, oscillating metrics.
+
+**Check in order:**
+1. Learning rate — too high is the most common cause of instability.
+2. Gradient norms — if they're spiking, add gradient clipping.
+3. Weight initialization — too-large initial weights amplify instability through the chain rule.
+4. Architecture — very deep networks without residual connections or normalization are inherently unstable. Add them.
+5. Batch size — too small gives noisy gradient estimates. Too large can converge to sharp minima. 32-256 is usually a safe range.
+6. If using GANs — adversarial training is inherently unstable. Consider switching to diffusion if the instability is persistent.
+
+### When You Need the Model to Say "I Don't Know"
+
+**Signal:** The model must distinguish between confident predictions and uncertain ones. High-stakes decisions, active learning, safety-critical systems.
+
+**Standard approach:** Calibrated confidence scores. Softmax outputs are often overconfident — calibration techniques (temperature scaling, Platt scaling) adjust them to reflect true uncertainty.
+
+**Stronger approaches:** Ensembles (train multiple models, disagreement = uncertainty). Monte Carlo dropout (run inference multiple times with dropout active, variance = uncertainty). Energy-based models (multiple low-energy states = genuine ambiguity in the input, not just model uncertainty).
+
+> **Key insight:** Most of these patterns have a common shape: identify what structural property of the data or task is being violated, then choose the tool that addresses that specific property. The wrong diagnosis leads to the wrong solution — adding capacity when the problem is regularization, adding attention when the problem is encoding, adding data when the problem is architecture.
 
 ---
 
