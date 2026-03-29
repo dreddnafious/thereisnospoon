@@ -76,8 +76,6 @@ A neuron is a half-space detector. It gives you a side (which half) and a distan
 
 ![A single neuron divides 2D input space along a hyperplane. Left: z values as a gradient showing positive and negative regions. Right: after ReLU, the negative side is clamped to zero.](figures/01_neuron_hyperplane.png)
 
-**The bias** is a scalar, not a vector. It shifts the boundary. Without it, the hyperplane always passes through the origin. With it, the boundary can be positioned anywhere. The bias is a threshold — how aligned does the input need to be before the neuron responds positively?
-
 **The nonlinearity** (`f`) transforms z into the neuron's output. Without it, stacking layers collapses into a single linear operation. The nonlinearity breaks linearity and gives the network expressive power.
 
 ### Activation Functions as Design Decisions
@@ -358,17 +356,22 @@ Every architecture does three things: combine inputs according to some rule, app
 
 ![Combination rules: how each architecture connects inputs. Dense connects everything. Convolution connects local neighbors with shared weights. Recurrence carries state forward sequentially. Attention connects dynamically based on content. Graph connects along given topology.](figures/12_combination_rules.png)
 
-**Dense** — every input connects to every output. No assumption. Maximum flexibility, maximum parameters.
+**Dense** — every input connects to every output. No assumption. Maximum flexibility, maximum parameters. The standard multi-layer perceptron (MLP) is stacked dense layers.
 
 **Convolution** — small sliding dot product with shared weights. Assumes locality and translation invariance. Far fewer parameters. Hierarchical feature composition: edges → textures → objects across layers. Pooling, stride, and dilation control how the receptive field expands. Breaks down when locality is wrong, when translation invariance is wrong, or when data isn't on a grid.
+- *Landmark models:* LeNet (1998, handwritten digits), AlexNet (2012, ImageNet breakthrough), ResNet (2015, residual connections enabled 100+ layers), U-Net (2015, image segmentation, backbone of diffusion models).
 
 **Recurrence** — sequential state-carrying. `h_t = f(W_h · h_(t-1) + W_x · x_t + b)`. A fixed-size vector summarizes all history. Each step is a lossy relay — the entire upstream history must fit in one vector. Eigenvalues of W_h determine information decay rates per direction (eigenvalue < 1: information decays; > 1: it explodes; = 1: preserved). Vanilla RNNs fail beyond ~10-20 steps. LSTMs add an additive cell state (conveyor belt) with learned gates (forget, input, output) — same trick as residual connections. GRUs simplify to one update gate. Attention replaced recurrence for parallelism, no compression bottleneck, and shorter gradient paths. Recurrence still wins for streaming, constant memory, and strict causality.
+- *Landmark models:* LSTM (1997, Hochreiter & Schmidhuber), GRU (2014, Cho et al.), seq2seq (2014, encoder-decoder for translation — where attention was invented as a patch for the compression bottleneck).
 
 **Attention** — dynamic, content-dependent combination. Three projections per element: query (what am I looking for?), key (what do I contain?), value (what do I provide?). Dot product of query against all keys determines relevance. Softmax normalizes to a distribution. Output is weighted sum of values. Q/K/V are the complete decomposition of a routing operation — no additional projections have proven necessary.
+- *Landmark models:* Transformer (2017, "Attention Is All You Need"), BERT (2018, bidirectional encoder), GPT series (2018-present, autoregressive decoder), Vision Transformer/ViT (2020, patches + attention for images).
 
 **Graph operations** — message passing over explicit topology. Nodes collect from neighbors, aggregate, update. Convolution generalized to irregular structure. Excels when relationships are known (molecules, physics). Oversmoothing limits depth — too many rounds and all nodes converge.
+- *Landmark models:* GCN (2017, Kipf & Welling), GAT (2018, attention-weighted edges), SchNet (2017, molecular property prediction), AlphaFold 2 (2020, protein structure with graph + attention).
 
 **State-space models** — continuous-time recurrence from control theory. `dx/dt = Ax + Bu, y = Cx + Du`. Can be computed as recurrence (O(1) memory) or convolution (parallel training). HiPPO provides mathematically optimal history compression. Mamba added input-dependent gating for content-sensitive processing. Bridges recurrence and convolution.
+- *Landmark models:* S4 (2021, first efficient SSM), Mamba (2023, selective state spaces), Jamba (2024, SSM-attention hybrid).
 
 **Sparse/structured matrices** — constrained connectivity for efficiency. Block-diagonal (independent groups), low-rank (bottleneck factorization), butterfly (hierarchical pairwise mixing in O(N log N)). Sometimes matches data structure, sometimes purely a compute approximation.
 
@@ -424,9 +427,13 @@ Three decisions: what is an element (granularity), what does each element's vect
 
 **The encoder must preserve what you need, and you decide that before choosing the encoder, not after.** A pretrained encoder optimized for one objective may actively destroy information another task requires. End-to-end training solves the encoder-model alignment problem — the gradient tells the encoder what the downstream model needs. Without end-to-end training, you're hand-engineering the interface.
 
-**Per-modality encoders**: text (tokenize + embed), images (pixels for CNN, patches for ViT), audio (spectrogram + conv front-end), graphs (define nodes, edges, features). Each specialized for its data type.
+**Per-modality encoders:**
+- *Text:* tokenize into subwords (BPE, WordPiece, SentencePiece) + learned embedding per token. Tokenizer choice determines what the model can see — "unhappy" as one token vs "un" + "happy" as two changes whether compositional structure is visible.
+- *Images:* raw pixels on a grid (for CNNs), or split into patches and project each patch (for ViTs). Patch size is the granularity tradeoff — 16×16 is standard.
+- *Audio:* convert to spectrogram (time-frequency image), then convolutional front-end or patch embedding. Whisper (2022) and Wav2Vec (2020) are landmark audio encoders.
+- *Graphs:* define what is a node, what is an edge, what features attach to each. This requires domain knowledge — the graph structure *is* the encoding.
 
-**Multimodal alignment**: adapter per modality projecting into shared dimensionality. The projection is easy — the alignment is hard. Contrastive training (CLIP) provides the signal that makes semantically matched inputs from different modalities land in the same region of the shared space.
+**Multimodal alignment**: adapter per modality projecting into shared dimensionality. The projection is easy — the alignment is hard. Contrastive training (CLIP) provides the signal that makes semantically matched inputs from different modalities land in the same region of the shared space. GPT-4o and Gemini process multiple modalities through aligned encoders into a shared transformer.
 
 ---
 
@@ -434,13 +441,13 @@ Three decisions: what is an element (granularity), what does each element's vect
 
 **Backpropagation** — exact global gradient via chain rule. Dominant because nothing else matches its efficiency at scale. Downsides: requires differentiability (can't backprop through discrete decisions), requires storing all activations (memory scales with depth), backward pass as expensive as forward, sequential layer-by-layer backward (synchronization bottleneck), catastrophic forgetting (gradient only sees current batch), no learning at inference time, gradient pathology scales with depth.
 
-**Hebbian learning** — "neurons that fire together wire together." `Δw = η · x_i · x_j`. Local, no global error signal. Learns correlations, not task mappings. Natural associative memory, supports continual learning. Capacity ~0.14N patterns for N neurons.
+**Hebbian learning** — "neurons that fire together wire together." `Δw = η · x_i · x_j`. Local, no global error signal. Learns correlations, not task mappings. Natural associative memory, supports continual learning. Capacity ~0.14N patterns for N neurons. Classical Hopfield networks (1982) are the canonical example.
 
-**Modern Hopfield networks** — exponential energy function dramatically increases capacity. The update rule is mathematically equivalent to transformer attention. Attention *is* Hopfield retrieval.
+**Modern Hopfield networks** (Ramsauer et al., 2020) — exponential energy function dramatically increases storage capacity. The update rule is mathematically equivalent to transformer attention. Attention *is* Hopfield retrieval.
 
-**Contrastive learning** — training objective, not a weight update rule. Make similar things close, dissimilar things far. Learns representations without labels. Uses backprop for weight updates, but the training signal comes from data structure, not human labels.
+**Contrastive learning** — training objective, not a weight update rule. Make similar things close, dissimilar things far. Learns representations without labels. Uses backprop for weight updates, but the training signal comes from data structure, not human labels. SimCLR (2020), CLIP (2021), and DINO (2021) are landmark examples.
 
-**Energy-based models** — define energy over configurations, learn the landscape, inference is energy minimization. Enables iterative refinement at inference — the model can "think longer" about hard inputs. Multiple low-energy states signal ambiguity. Cost: slower than single forward pass.
+**Energy-based models** — define energy over configurations, learn the landscape, inference is energy minimization. Enables iterative refinement at inference — the model can "think longer" about hard inputs. Multiple low-energy states signal ambiguity. Cost: slower than single forward pass. Boltzmann machines (1985) and deep equilibrium models (2019) are notable examples.
 
 **Learned loss functions** — when the objective is too complex to specify mathematically (what makes a good image? a helpful response?), train a network to learn the objective from examples. GANs do this (discriminator is a learned loss). RLHF does this (reward model is a learned loss). General principle: when you can judge quality but can't formalize it, learn the loss function.
 
@@ -451,14 +458,21 @@ Three decisions: what is an element (granularity), what does each element's vect
 The training objective — what the model optimizes for. Independent of architecture and learning rule.
 
 **Supervised** — inputs and correct outputs. Model predicts, compares to answer, updates. Limited by labeled data.
+- *Examples:* ImageNet classification (ResNet, EfficientNet), machine translation (early seq2seq models), speech recognition (DeepSpeech), medical image diagnosis.
 
-**Self-supervised** — hide part of input, predict the hidden part. Labels come from data itself. Masked language modeling (BERT), next-token prediction (GPT). Power is scale — unlabeled data is effectively unlimited.
+**Self-supervised** — hide part of input, predict the hidden part. Labels come from data itself. Power is scale — unlabeled data is effectively unlimited. This is how most foundation models are trained.
+- *Masked prediction:* BERT (2018) masks words, predicts from context. MAE (2022) masks image patches, reconstructs pixels.
+- *Autoregressive prediction:* GPT series (2018-present) predicts the next token. The entire capability of modern LLMs — grammar, semantics, world knowledge, reasoning — emerges from this objective applied at scale.
+- *Contrastive:* SimCLR (2020) and CLIP (2021) learn representations by pushing similar pairs close and dissimilar pairs apart in embedding space.
 
-**Reinforcement learning** — no correct answers, only rewards. Model takes actions, receives sparse/delayed reward, learns a policy. Much harder than supervised — weak learning signal, credit assignment problem. RLHF uses RL to align LLMs with human preferences that next-token prediction doesn't capture.
+**Reinforcement learning** — no correct answers, only rewards. Model takes actions, receives sparse/delayed reward, learns a policy. Much harder than supervised — weak learning signal, credit assignment problem.
+- *Examples:* AlphaGo/AlphaZero (2016-2017, game playing), OpenAI Five (2019, Dota 2), RLHF for LLM alignment (InstructGPT 2022, used in ChatGPT, Claude, etc.), robotics control (RT-2).
 
-**GANs** — generator produces fake data, discriminator distinguishes real from fake. Adversarial dynamic produces sharp, high-quality samples. Training is notoriously unstable (mode collapse, balancing). Dominated image generation 2016-2021, then replaced by diffusion.
+**GANs** — generator produces fake data, discriminator distinguishes real from fake. Adversarial dynamic produces sharp, high-quality samples. Training is notoriously unstable (mode collapse, balancing). Dominated image generation 2016-2021, then replaced by diffusion. Core insight: the discriminator is a *learned loss function* — when you can't write a formula for "good output," train a network to judge it.
+- *Examples:* DCGAN (2015, first stable image GAN), StyleGAN (2019, photorealistic face generation), Pix2Pix (2017, image-to-image translation), CycleGAN (2017, unpaired style transfer).
 
-**Diffusion** — define a noise-adding process that destroys data over T steps. Train a network to reverse each step. Generation: start from noise, iteratively denoise. Training is stable (simple regression objective — predict the noise). Quality matches GANs. Cost: hundreds of denoising steps per sample. Key insight: iterative refinement allocates compute proportionally to difficulty.
+**Diffusion** — define a noise-adding process that destroys data over T steps. Train a network to reverse each step. Generation: start from noise, iteratively denoise. Training is stable (simple regression objective — predict the noise). Quality matches or exceeds GANs. Cost: hundreds of denoising steps per sample. Key insight: iterative refinement allocates compute proportionally to difficulty.
+- *Examples:* DALL-E 2 (2022), Stable Diffusion (2022, open-source image generation), Midjourney, Sora (2024, video generation), Mercury (2025, diffusion applied to text token generation).
 
 ---
 
