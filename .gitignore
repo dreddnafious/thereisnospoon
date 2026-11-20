@@ -6,3 +6,6 @@ CLAUDE.md
 # Environment
 .venv/
 __pycache__/
+
+# Built artifacts (the companion PDF ships as a GitHub release asset)
+*.pdf

@@ -85,6 +85,22 @@ The syllabus shows the full topic map: **[SYLLABUS.md](SYLLABUS.md)**
 
 <br>
 
+### 🔬 Companion: Circuits and Formation
+
+### **[circuits-primer.md](circuits-primer.md)** · [📄 PDF](https://github.com/dreddnafious/thereisnospoon/releases/latest/download/circuits-primer.pdf)
+
+Picks up where the main primer stops: how the parts of a trained network actually talk to each other, and how working functions form during training.
+
+| | Topic | What it covers |
+|---|-------|---------------|
+| 🚌 | [The Machinery](circuits-primer.md#part-1--the-machinery) | The residual stream as a shared bus, read/write as matrix products, Q/K/V from scratch, induction circuits, circuit roles |
+| 🌱 | [Formation](circuits-primer.md#part-2--formation) | Function vs foothold, co-growth (why capabilities appear suddenly), the largest-leap rule, present vs reachable |
+| ⬆️ | [Depth](circuits-primer.md#part-3--depth-what-a-fixed-stack-can-route) | What a fixed stack can route, chain of thought's two routes, recurrence |
+| 🧪 | [Not Fooling Yourself](circuits-primer.md#part-4--not-fooling-yourself) | Encoder credit, the bitter-lesson check, probes in small worlds |
+| 📡 | [One Training Step](circuits-primer.md#part-5--how-much-can-one-training-step-teach) | What a backward pass can teach, and where SGD throws it away |
+
+<br>
+
 ## 🧭 How to Use This
 
 This primer was built through conversation — one concept at a time, each stress-tested with questions until the mental model held up. You can use it two ways:
@@ -120,7 +136,9 @@ The primer gives both you and the agent a shared vocabulary and a correct concep
 
 ## 🖼️ Visualizations
 
-12 figures covering neurons, activation functions, paper folding, derivatives, chain rule, attention, FFN volumetric lookup, residual connections, dot products, loss landscapes, combination rules, and gating operations.
+12 figures in the main primer, covering neurons, activation functions, paper folding, derivatives, chain rule, attention, FFN volumetric lookup, residual connections, dot products, loss landscapes, combination rules, and gating operations.
+
+13 more in the companion (13–25): the residual bus, virtual weights, Q/K/V, induction, superposition crosstalk, circuit roles, co-growth dynamics, staggered formation, a measured leap-complexity experiment, shared vs private wiring, chain of thought's two routes, encoder credit, and the gradient as a dyad. Several are live computations rather than diagrams.
 
 All generated from Python scripts in [`scripts/`](scripts/). To regenerate:
 
@@ -130,7 +148,7 @@ python3 scripts/02_activation_functions.py
 # ... etc
 ```
 
-Requires `matplotlib` and `numpy`.
+Requires `matplotlib` and `numpy`. The companion PDF is published as a [release asset](https://github.com/dreddnafious/thereisnospoon/releases/latest), not committed. To rebuild it: `python3 scripts/build_circuits_pdf.py` (also needs `markdown`, Chrome/Chromium, and `pdftotext` for contents page numbers; typeset in IBM Plex).
 
 <br>
 
