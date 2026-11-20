@@ -133,6 +133,41 @@ A map of the primer's territory. Use this to find topics, identify gaps, or plan
 
 ---
 
+# Companion: Circuits and Formation ([circuits-primer.md](circuits-primer.md))
+
+## The Machinery
+- [x] The residual stream as a shared bus — one vector per position, writes added, reads through each component's own weights
+- [x] Components, features, circuits, paths — and the two meanings of "head"
+- [x] Reading and writing as matrix products — virtual weights and composition scores
+- [x] Query, key, value as three reads of one vector; Q-, K- and V-composition
+- [x] Induction as the canonical producer–consumer circuit
+- [x] Superposition, quantified — near-orthogonality and crosstalk vs sparsity
+- [x] Circuits as graphs of roles — producers, movers, combiners, inhibitors, readouts
+
+## Formation
+- [x] Function vs foothold — mechanisms in the network vs correlations in the data
+- [x] Co-growth — multiplicative coupling, plateaus, hidden progress, sudden jumps
+- [x] What forms when — shortcuts first, frequency order, staggered formation
+- [x] The largest leap sets the cost — staircases vs walls, leap complexity, information exponent
+- [x] Present is not reachable — capability on paths; where conditioning enters decides sharing
+- [x] Where good intermediates come from — imposed, language, outcome reward, discovery, compression
+
+## Depth
+- [x] Upward-only edges; representable vs learned (TC⁰, chain of thought, looped transformers)
+- [x] Chain of thought as a universal port; the token route vs the hidden-state route
+
+## Not Fooling Yourself
+- [x] The encoder as the ultimate foothold — controls that separate encoder credit from method credit
+- [x] The bitter-lesson check — could you have predicted it from the architecture alone?
+- [x] Probes in small worlds
+
+## How Much One Training Step Teaches
+- [x] The loss as the information budget; prequential code length
+- [x] Where SGD discards it — batch averaging of dyads, small steps, gradient starvation, hard labels
+- [x] Examples teaching each other — SGD's implicit preference for gradient agreement
+
+---
+
 ## Key Insights
 
 Concepts that emerged from exploration and are worth keeping in mind:
@@ -149,3 +184,8 @@ Concepts that emerged from exploration and are worth keeping in mind:
 - The LSTM cell state uses the same additive bypass trick as residual connections
 - When the loss function is too complex to specify, learn it (GANs, RLHF)
 - Eigenvalues of the recurrence matrix are literally per-direction information decay rates
+- A capability usually lives in a producer–consumer pair, not in one component
+- Composed functions are grown, not assembled: each part's gradient is scaled by the other's strength
+- Cost is set by the largest leap, not the number of parts
+- Present is not reachable — count paths, not nodes
+- Chain-of-thought tokens are a universal port and the only route back down through depth
